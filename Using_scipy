@@ -1,0 +1,141 @@
+#import Liberaries
+from scipy.optimize import linprog
+import numpy as np
+import pandas as pd
+
+#define the output schedule
+schedule = pd.DataFrame(columns=['Time', 'Electricity','H_1', 'H_2', 'Surplus electricity'])
+
+#Upload the input: forecasted power array
+forecasted_power= np.array([110, 120]) #instead of uploading the dataset (not available) I created an assumption of two time-step values.
+
+#define dummy variables to increment hydrogen quantities, electricity, and cutailment for each time step in
+Q_1 = 0
+Q_2 = 0
+E = 0
+Surplus = 0
+
+class RevenueOptimizer:
+    def __init__(self, prices, capacity_constraints):
+
+        #Initialize the prices and maximum capacities
+        self.prices = {'electricity': 50, 'hydrogen_1': 200, 'hydrogen_2': 100}
+        """
+        initialize the maximum capacities 
+        P_max: maximimus electrolyzer capacity, 
+        E_max: maximum electricity to be sold to grid, 
+        P_storage: Maximum storage capacity for each time-step
+        Q_lim_1 & Q_lim_2 are maximum promised demand hydrogen to customers over all time steps 
+        E_lim: maximum electricity demand to customers over all time steps 
+        """
+        self.capacity_constraints = {'P_max': 100, 'E_max': 60,'P_storage':200, 'Q_lim_1': 150, 'Q_lim_2': 40, 'E_lim': 200 } 
+        
+        
+    def objective_function(self, PE, H1, H2):
+        
+        #Objective function to maximize revenue from selling hydrogen to two customers and electricity to the grid.
+        p_e = self.prices['electricity']
+        p_h1 = self.prices['hydrogen_1']
+        p_h2 = self.prices['hydrogen_2']
+        
+        #revenue objective function
+        revenue = p_e * PE + p_h1 * H1 + p_h2* H2
+        return revenue
+    
+    def solve(self):
+        """
+        Solves the optimization problem to maximize revenue by allocating power and hydrogen.
+
+        return: The optimal power allocation to the electrolyzer (PE), and hydrogen distribution (H1, H2).
+        """
+        # Prices 
+        p_e = self.prices['electricity']
+        p_h1 = self.prices['hydrogen_1']
+        p_h2 = self.prices['hydrogen_2']
+        
+
+        # Capacity constraints (e.g., max power available, max electrolyzer capacity)
+        P_max = self.capacity_constraints['P_max']  # Max forecasted power from renewable sources
+        E_max = self.capacity_constraints['E_max']  # Max power to electrolyzer
+        P_storage = self.capacity_constraints['P_storage']  # Max power to electrolyzer
+
+
+        # Coefficients for the objective function: -revenue (negated for minimization in linprog)
+        # The objective is to minimize the negative of the revenue (linprog solves minimization problems)
+        c = [-p_e, -p_h1, -p_h2]    #p_e * PE + p_h1 * H1 + p_h2* H2
+
+        # Bounds for decision variables: PE (power to electrolyzer), H1 (hydrogen to customer 1), H2 (hydrogen to customer 2)
+        bounds = [
+            (0, E_max),  # PE: Power to electrolyzer is between 0 and its maximum capacity to be sold to grid
+            (0, P_max),  # H1: Hydrogen to customer 1 is constrained by maximum electrolyzer capacity
+            (0, P_max),  # H2: Hydrogen to customer 1 is constrained by maximum electrolyzer capacity        
+                ]
+
+        # Constraints:
+        #Constrains left hand side inequalities
+        A_eq = [
+            [1, 0, 0],  # PE <= E (Maximum power can be sold to grid Power available)
+            [1, 1, 1],  # PE + H1 + H2 <= P_fc
+            [0, 1, 1],  # H1 + H2 <= P_max (Maximum electrolyzer capacity)
+            [0, 1, 1],  # H1 + H2 <= P_storage (Maximum storage capacity)
+
+                ]
+
+        #Constrains right-hand side in equalities
+        b_eq = [E, P_fc, P_max,P_storage]
+
+        # Solve the optimization problem using linear programming (linprog minimizes, so we minimize -revenue)
+        result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+
+        # Extract the optimal solution
+        if result.success:
+            PE_opt = result.x[0]
+            H1_opt = result.x[1]
+            H2_opt = result.x[2]
+            return {'PE': PE_opt, 'H1': H1_opt, 'H2': H2_opt, 'revenue': -result.fun}
+        else:
+            raise ValueError("Optimization did not converge.")
+
+
+prices = {'electricity': 50, 'hydrogen_1': 200, 'hydrogen_2': 100}
+capacity_constraints = {'P_max': 100, 'E_max': 60,'P_storage':200,'Q_lim_1': 150, 'Q_lim_2': 40, 'E_lim': 200 }
+
+
+for i, P_fc in enumerate(forecasted_power):
+    optimizer = RevenueOptimizer(prices, capacity_constraints)
+    optimal_solution = optimizer.solve()
+
+    #increment customer quantities
+    Q_1 += H1_opt
+    Q_2 += H2_opt
+    E += PE_opt
+
+    #check demand constrains:
+    if Q_1 > self.capacity_constraints['Q_lim1']:
+        Q_2 += (Q_1-self.capacity_constraints['Q_lim1'])
+    
+    if Q_2 > self.capacity_constraints['Q_lim2']:
+        E += (Q_2-self.capacity_constraints['Q_lim2'])
+    
+    if E > self.capacity_constraints['E_lim']:
+        Surplus += (PE-self.capacity_constraints['E_lim'])
+
+    #Append the result of each time step to the output schedule
+    new_row = {'Time': i+1, 'Electricity': E,'H_1': Q_1, 'H_2':Q_2, 'Surplus electricity':Surplus} #define time as time step instead of real time as it wasn't provided in the input power array
+    # Append the new row to the DataFrame
+    output_schedule = schedule.append(new_row, ignore_index=True)
+
+#print the output schedule
+print(df)
+
+
+#Adjust_dynamic_pricing_schema_for_hydrogen
+
+class DynamicPricing:
+    def __init__(self, base_price, demand_function):
+        self.base_price = base_price
+        self.demand_function = demand_function
+
+    def adjust_price(self, H_demand):
+        # Adjust price based on current demand (H1, H2)
+        pass
