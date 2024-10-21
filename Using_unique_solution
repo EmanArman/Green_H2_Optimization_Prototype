@@ -1,0 +1,71 @@
+#import libraries
+import numpy as np
+import pandas as pd
+
+# As the forecasted power schedule is unavailable, the following lines create a simulation of it instead of uploading a dataset
+
+# Create a date range for a single day with 15-minute intervals
+time_index = pd.date_range(start='2024-10-11 00:00:00', end='2024-10-11 23:59:59', freq='15min')
+
+# Generate random power data for the P_fc column
+P_fc = np.random.uniform(low=80, high=120, size=len(time_index))  # Random values for P_fc
+
+# Create a DataFrame with two columns: 'Time' and 'P_fc'
+power_schedule = pd.DataFrame({
+    'Time': time_index,
+    'P_fc': P_fc,
+})
+
+# Print the first few rows of the schedule
+print("Power Schedule:")
+print(power_schedule.head())
+
+# Initialize the output schedule
+df = power_schedule.copy()
+output_schedule = df.assign(H_1=0, H_2=0, P_E=0, Sur_elec=0)
+
+# Define the maximum capacities and demands
+P_max = 100      # Maximum electrolyzer capacity
+E_max = 200      # Maximum electricity can be sold to the grid
+Q_lim_1 = 150    # Maximum hydrogen amount can be sold to customer 1
+Q_lim_2 = 50     # Maximum hydrogen amount can be sold to customer 2
+
+# Initialize dummy variables to increment values in each time step
+Q = Q_1 = Q_2 = E = 0
+
+# Define the promised value for customer 1
+Q_prom = 120
+
+# Calculate the optimized values of electricity and hydrogen amount for each time step
+for i, P_fc in enumerate(power_schedule['P_fc']):
+    
+    # Calculate the total optimal value of produced hydrogen
+    H = min(P_max, P_fc, max(0, (Q_max -  Q))) # H= min{P_max, P_fc} & 0<= H<= Q_max
+    # Cumulate the value to Q (total hydrogen production)
+    Q += H
+    
+    # Calculate the optimal value of electricity to be sold to the grid
+    P_E = output_schedule.loc[i, 'P_E'] = min((P_fc - H), max(0, (E_max -  E))) # P_E = P_fc - H  & 0 <= P_E <= E_max
+    
+    # Calculate the Surplus electricity if it exists
+    output_schedule.loc[i, 'Sur_elec'] = max(0, P_fc - H - P_E)
+    # Cumulate the value to E (total electricity sold)
+    E += P_E
+    
+    # Calculate the optimal value of hydrogen amount sold to customer 1
+    H_1 = output_schedule.loc[i, 'H_1'] =  min(H, max(0, (Q_lim_1 -  Q_1))) # H_1 = min(H, Q_lim_1) & 0<= H_1 <= Q_lim_1
+    # Cumulate the value to Q_1 (total hydrogen to customer 1)
+    Q_1 += H_1
+
+    # Calculate the optimal value of hydrogen amount sold to customer 2
+    H_2 = output_schedule.loc[i, 'H_2'] = min((H - H_1), max(0, (Q_lim_2 -  Q_2))) # H_2 = H - H_2  & 0<= H_2 <= Q_lim_2
+    # Cumulate the value of Q_2 (total hydrogen to customer 2)
+    Q_2 += H_2
+
+# Print the final output schedule
+print("\nFinal Output Schedule:")
+print(output_schedule)
+
+# Insufficiency Warning
+if Q_1 < Q_prom:
+    print('\nWarning: The hydrogen quantity is insufficient to meet the promised value to customer 1.')
