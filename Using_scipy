@@ -126,16 +126,6 @@ for i, P_fc in enumerate(forecasted_power):
     output_schedule = schedule.append(new_row, ignore_index=True)
 
 #print the output schedule
-print(df)
+print(output_schedule)
 
 
-#Adjust_dynamic_pricing_schema_for_hydrogen
-
-class DynamicPricing:
-    def __init__(self, base_price, demand_function):
-        self.base_price = base_price
-        self.demand_function = demand_function
-
-    def adjust_price(self, H_demand):
-        # Adjust price based on current demand (H1, H2)
-        pass
