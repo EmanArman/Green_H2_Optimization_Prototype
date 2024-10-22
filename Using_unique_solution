@@ -24,24 +24,32 @@ print(power_schedule.head())
 df = power_schedule.copy()
 output_schedule = df.assign(H_1=0, H_2=0, P_E=0, Sur_elec=0)
 
-# Define the maximum capacities and demands
-P_max = 100      # Maximum electrolyzer capacity
-E_max = 200      # Maximum electricity can be sold to the grid
-Q_lim_1 = 150    # Maximum hydrogen amount can be sold to customer 1
-Q_lim_2 = 50     # Maximum hydrogen amount can be sold to customer 2
+#calculate the promised value for customer 1 at 90%  probability
+# Step 1: Calculate the cumulative sum of the power output
+power_schedule['Cumulative_Power'] = power_schedule['P_fc'].cumsum()
 
+# Step 2: Calculate the 90th percentile of the cumulative power output
+Q_prom = np.percentile(power_schedule['Cumulative_Power'], 90)
+
+
+# Define the maximum capacities and demands
+P_max = 300      # Maximum electrolyzer capacity (Given)
+E_max = 200      # Maximum electricity can be sold to the grid (must be given too)
+Q_lim_1 = 1.1*Q_prom    # Maximum hydrogen amount can be sold to customer 1 (Assume: Q_lim= 1.1*Q_prom)
+Q_lim_2 = 0.5* Q_lim_1    # Maximum hydrogen amount can be sold to customer 2   (Assume: Q_lim_2 = 0.5 * Q_lim_1)
+Q_max = Q_lim_1 + Q_lim_2  #maximum storage capacity, assume that maximum storage capacity equal to the maximum customer demand
+
+print(Q_prom, Q_lim_1, Q_lim_2, Q_max)
 # Initialize dummy variables to increment values in each time step
 Q = Q_1 = Q_2 = E = 0
 
-# Define the promised value for customer 1
-Q_prom = 120
 
 # Calculate the optimized values of electricity and hydrogen amount for each time step
 for i, P_fc in enumerate(power_schedule['P_fc']):
     
     # Calculate the total optimal value of produced hydrogen
     H = min(P_max, P_fc, max(0, (Q_max -  Q))) # H= min{P_max, P_fc} & 0<= H<= Q_max
-    # Cumulate the value to Q (total hydrogen production)
+    # Cumulate the value to Q (total hydrogen production), assume as the storage quantity value
     Q += H
     
     # Calculate the optimal value of electricity to be sold to the grid
