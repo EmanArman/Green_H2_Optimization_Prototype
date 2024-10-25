@@ -73,7 +73,7 @@ class RevenueOptimizer:
 
         # Constraints:
         #Constrains left hand side inequalities
-        A_eq = [
+        A_ub = [
             [1, 0, 0],  # PE <= E (Maximum power can be sold to grid Power available)
             [1, 1, 1],  # PE + H1 + H2 <= P_fc
             [0, 1, 1],  # H1 + H2 <= P_max (Maximum electrolyzer capacity)
@@ -82,10 +82,10 @@ class RevenueOptimizer:
                 ]
 
         #Constrains right-hand side in equalities
-        b_eq = [E, P_fc, P_max,P_storage]
+        b_ub = [E, P_fc, P_max,P_storage]
 
         # Solve the optimization problem using linear programming (linprog minimizes, so we minimize -revenue)
-        result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+        result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
 
         # Extract the optimal solution
         if result.success:
